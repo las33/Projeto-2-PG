@@ -9,7 +9,7 @@ using std::endl;
 #include <gl/Glu.h>
 #include <vector>
 
-//Leitura de arquivo
+// Read files
 #include <fstream>
 #include <string>
 
@@ -32,38 +32,38 @@ public:
 
 };
 
-class Triangulo {
+class Triangle {
 public:
 	int  v1, v2, v3;
 	void setvs(int a, int b, int c) { v1 = a; v2 = b; v3 = c; }
 };
 
 bool eq(float a, float b) {
-	if (abs(a - b)<(10e-9))
+	if (abs(a - b) < (10e-9))
 		return true;
 	return false;
 }
 
-class Linha {
+class Line {
 public:
 
 	float a, b, c, d;
-	Linha() :a(0), b(0), c(0), d(0) {}
-	Linha(float a, float b, float c, float d) :a(a), b(b), c(c), d(d) {}
-	Linha(const Linha &l) :a(l.a), b(l.b), c(l.c), d(l.d) {}
-	Linha operator /(float x) const {
+	Line() :a(0), b(0), c(0), d(0) {}
+	Line(float a, float b, float c, float d) :a(a), b(b), c(c), d(d) {}
+	Line(const Line &l) :a(l.a), b(l.b), c(l.c), d(l.d) {}
+	Line operator /(float x) const {
 		if (eq(x, 0))
 			x = 1.0f;
-		return Linha(a / x, b / x, c / x, d / x);
+		return Line(a / x, b / x, c / x, d / x);
 	}
-	Linha operator %(const Linha &x) const {
-		return Linha(a - x.a*a, b - x.b*a, c - x.c*a, d - x.d*a);
+	Line operator %(const Line &x) const {
+		return Line(a - (x.a*a), b - (x.b*a), c - (x.c*a), d - (x.d*a));
 	}
-	Linha operator ^(const Linha &x) const {
-		return Linha(a, b - x.b*b, c - x.c*b, d - x.d*b);
+	Line operator ^(const Line &x) const {
+		return Line(a, b - (x.b*b), c - (x.c*b), d - (x.d*b));
 	}
-	Linha operator +(const Linha &x) const {
-		return Linha(a, b, c - x.c*c, d - x.d*c);
+	Line operator +(const Line &x) const {
+		return Line(a, b, c - (x.c*c), d - (x.d*c));
 	}
 	string to_string() {
 		char res[150];
@@ -72,15 +72,15 @@ public:
 	}
 };
 
-class Escalona {
+class RowReduction {
 public:
 
-	Linha l1, l2, l3;
-	Escalona() :l1(0, 0, 0, 0), l2(0, 0, 0, 0), l3(0, 0, 0, 0) {}
-	Escalona(const Linha &l1, const Linha &l2, const Linha &l3) :l1(l1), l2(l2), l3(l3) {}
-	Escalona(const Escalona &l) :l1(l.l1), l2(l.l2), l3(l.l3) {}
+	Line l1, l2, l3;
+	RowReduction() :l1(0, 0, 0, 0), l2(0, 0, 0, 0), l3(0, 0, 0, 0) {}
+	RowReduction(const Line &l1, const Line &l2, const Line &l3) :l1(l1), l2(l2), l3(l3) {}
+	RowReduction(const RowReduction &l) :l1(l.l1), l2(l.l2), l3(l.l3) {}
 
-	Linha esc() {
+	Line reduction() {
 		l1 = l1 / l1.a;
 		l2 = l2%l1;
 		l3 = l3%l1;
@@ -90,16 +90,16 @@ public:
 		l3 = l3 / l3.c;
 		l1 = l1 + l3;
 		l2 = l2 + l3;
-		return Linha(l1.d, l2.d, l3.d, 0);
+		return Line(l1.d, l2.d, l3.d, 0);
 	}
 };
 
 Point U, N, C, V, Pl, Ia, Il, Od;
 vector<Point> points;
-vector<Triangulo> triangulos;
-vector<Point> normaisTriangulos;
-vector<Point> normaisPoints;
-vector<Point_2D> points_tela;
+vector<Triangle> triangles;
+vector<Point> normalTriangles;
+vector<Point> normalPoints;
+vector<Point_2D> screenPoints;
 
 float z_buffer[SCREEN_WIDTH + 1][SCREEN_HEIGHT + 1];
 float d, hx, hy, ka, kd, n, ks;
@@ -117,13 +117,13 @@ vector<string> split(string str) {
 	return ret;
 }
 
-void calcular_normal_triangulos();
-void coordenadasToVista();
+void calculateTriangleNormalVector();
+void calculateScreenAndViewCoordinates();
 void FindU();
-void drawTriangle(Triangulo t, Point_2D p1, Point_2D p2, Point_2D p3);
-void inicializa_z_buffer();
-void drawLine(Triangulo t, Point_2D p1, Point_2D p2, Point_2D p3);
-void calculoGeral(int xscan, int scanlineY, Triangulo t, bool line);
+void drawTriangle(Triangle t, Point_2D p1, Point_2D p2, Point_2D p3);
+void initializeZBuffer();
+void drawLine(Triangle t, Point_2D p1, Point_2D p2, Point_2D p3);
+void ordinaryCalculation(int xscan, int scanlineY, Triangle t, bool line);
 
 void myInit() {
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -134,100 +134,100 @@ void myInit() {
 	glLoadIdentity();
 
 	//camera
-	string vetor, numero;
-	ifstream camera("calice2.cfg");//arquivo deve estar em \bin do projeto :)
+	string myVector, myNumber;
+	ifstream camera("calice2.cfg"); // this file should be in \bin folder of the project :)
 	if (camera.is_open())
 	{
-		getline(camera, vetor);
-		C.setxyz(atof(split(vetor)[0].c_str()), atof(split(vetor)[1].c_str()), atof(split(vetor)[2].c_str()));
+		getline(camera, myVector);
+		C.setxyz(atof(split(myVector)[0].c_str()), atof(split(myVector)[1].c_str()), atof(split(myVector)[2].c_str()));
 
-		getline(camera, vetor);
-		N.setxyz(atof(split(vetor)[0].c_str()), atof(split(vetor)[1].c_str()), atof(split(vetor)[2].c_str()));
+		getline(camera, myVector);
+		N.setxyz(atof(split(myVector)[0].c_str()), atof(split(myVector)[1].c_str()), atof(split(myVector)[2].c_str()));
 
-		getline(camera, vetor);
-		V.setxyz(atof(split(vetor)[0].c_str()), atof(split(vetor)[1].c_str()), atof(split(vetor)[2].c_str()));
+		getline(camera, myVector);
+		V.setxyz(atof(split(myVector)[0].c_str()), atof(split(myVector)[1].c_str()), atof(split(myVector)[2].c_str()));
 
-		getline(camera, numero);
-		d = atof(split(numero)[0].c_str());
-		hx = atof(split(numero)[1].c_str());
-		hy = atof(split(numero)[2].c_str());
+		getline(camera, myNumber);
+		d = atof(split(myNumber)[0].c_str());
+		hx = atof(split(myNumber)[1].c_str());
+		hy = atof(split(myNumber)[2].c_str());
 
 		camera.close();
 	}
 
-	//iluminacao
-	ifstream iluminacao("iluminacao.txt");//arquivo deve estar em \bin do projeto :)
-	if (iluminacao.is_open())
+	//illumination
+	ifstream illumination("illumination.txt"); // this file should be in \bin folder of the project :)
+	if (illumination.is_open())
 	{
-		getline(iluminacao, vetor);
-		Pl.setxyz(atof(split(vetor)[0].c_str()), atof(split(vetor)[1].c_str()), atof(split(vetor)[2].c_str()));
+		getline(illumination, myVector);
+		Pl.setxyz(atof(split(myVector)[0].c_str()), atof(split(myVector)[1].c_str()), atof(split(myVector)[2].c_str()));
 
-		getline(iluminacao, numero);
-		ka = atof(numero.c_str());
+		getline(illumination, myNumber);
+		ka = atof(myNumber.c_str());
 
-		getline(iluminacao, vetor);
-		Ia.setxyz(atof(split(vetor)[0].c_str()), atof(split(vetor)[1].c_str()), atof(split(vetor)[2].c_str()));
+		getline(illumination, myVector);
+		Ia.setxyz(atof(split(myVector)[0].c_str()), atof(split(myVector)[1].c_str()), atof(split(myVector)[2].c_str()));
 
-		getline(iluminacao, numero);
-		kd = atof(split(numero)[0].c_str());
+		getline(illumination, myNumber);
+		kd = atof(split(myNumber)[0].c_str());
 
-		getline(iluminacao, vetor);
-		Od.setxyz(atof(split(vetor)[0].c_str()), atof(split(vetor)[1].c_str()), atof(split(vetor)[2].c_str()));
+		getline(illumination, myVector);
+		Od.setxyz(atof(split(myVector)[0].c_str()), atof(split(myVector)[1].c_str()), atof(split(myVector)[2].c_str()));
 
-		getline(iluminacao, numero);
-		ks = atof(split(numero)[0].c_str());
+		getline(illumination, myNumber);
+		ks = atof(split(myNumber)[0].c_str());
 
-		getline(iluminacao, vetor);
-		Il.setxyz(atof(split(vetor)[0].c_str()), atof(split(vetor)[1].c_str()), atof(split(vetor)[2].c_str()));
+		getline(illumination, myVector);
+		Il.setxyz(atof(split(myVector)[0].c_str()), atof(split(myVector)[1].c_str()), atof(split(myVector)[2].c_str()));
 
-		getline(iluminacao, numero);
-		n = atof(split(numero)[0].c_str());
+		getline(illumination, myNumber);
+		n = atof(split(myNumber)[0].c_str());
 
-		iluminacao.close();
+		illumination.close();
 	}
 
-	//objetos
-	ifstream objetos("calice2.byu");//arquivo deve estar em \bin do projeto :)
+	//objects
+	ifstream objects("calice2.byu"); // this file should be in \bin folder of the project :)
 	int pts, t;
-	if (objetos.is_open())
+	if (objects.is_open())
 	{
-		getline(objetos, vetor);
-		pts = atoi(split(vetor)[0].c_str());
-		t = atoi(split(vetor)[1].c_str());
+		getline(objects, myVector);
+		pts = atoi(split(myVector)[0].c_str());
+		t = atoi(split(myVector)[1].c_str());
 
-		Point ponto;
-		ponto.x = 0.0;
-		ponto.y = 0.0;
-		ponto.z = 0.0;
-		points.push_back(ponto);
+		Point myPoint;
+		myPoint.x = 0.0;
+		myPoint.y = 0.0;
+		myPoint.z = 0.0;
+		points.push_back(myPoint);
 		for (int i = 1; i <= pts; i++) {
-			getline(objetos, vetor);
-			ponto.setxyz(atof(split(vetor)[0].c_str()), atof(split(vetor)[1].c_str()), atof(split(vetor)[2].c_str()));
-			points.push_back(ponto);
+			getline(objects, myVector);
+			myPoint.setxyz(atof(split(myVector)[0].c_str()), atof(split(myVector)[1].c_str()), atof(split(myVector)[2].c_str()));
+			points.push_back(myPoint);
 		}
 
-		Triangulo triangulo;
-		triangulo.v1 = 0;
-		triangulo.v2 = 0;
-		triangulo.v3 = 0;
-		triangulos.push_back(triangulo);
+		Triangle myTriangle;
+		myTriangle.v1 = 0;
+		myTriangle.v2 = 0;
+		myTriangle.v3 = 0;
+		triangles.push_back(myTriangle);
 		for (int i = 1; i <= t; i++) {
-			getline(objetos, vetor);
-			triangulo.setvs(atoi(split(vetor)[0].c_str()), atoi(split(vetor)[1].c_str()), atoi(split(vetor)[2].c_str()));
-			triangulos.push_back(triangulo);
+			getline(objects, myVector);
+			myTriangle.setvs(atoi(split(myVector)[0].c_str()), atoi(split(myVector)[1].c_str()), atoi(split(myVector)[2].c_str()));
+			triangles.push_back(myTriangle);
 		}
-		objetos.close();
+		objects.close();
 	}
 }
 
 void start() {
 	FindU();
-	coordenadasToVista();
-	calcular_normal_triangulos();
-	inicializa_z_buffer();
+	calculateScreenAndViewCoordinates();
+	calculateTriangleNormalVector();
+	initializeZBuffer();
 	int r = 0, t = 0;
-	for (int i = 1; i < triangulos.size(); i++) {
-		drawTriangle(triangulos[i], points_tela[triangulos[i].v1], points_tela[triangulos[i].v2], points_tela[triangulos[i].v3]);
+	for (int i = 1; i < triangles.size(); i++) {
+		drawTriangle(triangles[i], screenPoints[triangles[i].v1], screenPoints[triangles[i].v2], screenPoints[triangles[i].v3]);
 		t++;
 	}
 }
@@ -236,46 +236,46 @@ void drawDot(int x, int y) {
 	glVertex2f(x, y);
 }
 
-Point subtracaoVetor(Point p1, Point p2) {
+Point subtractVectors(Point p1, Point p2) {
 	p1.setxyz(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
 	return p1;
 }
 
-Point produtoVetorEscalar(float k, Point p1) {
+Point escalarVectorProduct(float k, Point p1) {
 	p1.setxyz(p1.x * k, p1.y * k, p1.z * k);
 	return p1;
 }
 
-float produtoInterno(Point p1, Point p2) {
-	float valor;
-	valor = p1.x*p2.x + p1.y*p2.y + p1.z*p2.z;
-	return valor;
+float innerProduct(Point p1, Point p2) {
+	float value;
+	value = p1.x*p2.x + p1.y*p2.y + p1.z*p2.z;
+	return value;
 }
 
-Point projecao(Point v, Point n) {
-	float produtoInternoVN = produtoInterno(v, n);
-	float produtoInternoN = produtoInterno(n, n);
+Point projection(Point v, Point n) {
+	float innerProductVN = innerProduct(v, n);
+	float innerProductN = innerProduct(n, n);
 
-	float valor = produtoInternoVN / produtoInternoN;
+	float value = innerProductVN / innerProductN;
 
-	n.x *= valor;
-	n.y *= valor;
-	n.z *= valor;
+	n.x *= value;
+	n.y *= value;
+	n.z *= value;
 
 	return n;
 }
 
-Point normaliza(Point p) {
-	float pInterno = produtoInterno(p, p);
-	float norma = sqrt(pInterno);
-	p.x /= norma;
-	p.y /= norma;
-	p.z /= norma;
+Point normalize(Point p) {
+	float innerP = innerProduct(p, p);
+	float norm = sqrt(innerP);
+	p.x /= norm;
+	p.y /= norm;
+	p.z /= norm;
 
 	return p;
 }
 
-Point produtoVetorial(Point p1, Point p2) {
+Point vectorProduct(Point p1, Point p2) {
 	float i = p1.y*p2.z - p1.z*p2.y;
 	float j = p1.z*p2.x - p1.x*p2.z;
 	float k = p1.x*p2.y - p1.y*p2.x;
@@ -286,109 +286,109 @@ Point produtoVetorial(Point p1, Point p2) {
 }
 
 void FindU() {
-	N = normaliza(N);
-	Point projec = projecao(V, N);
+	N = normalize(N);
+	Point projec = projection(V, N);
 
 	V.x = V.x - projec.x;
 	V.y = V.y - projec.y;
 	V.z = V.z - projec.z;
 
-	V = normaliza(V);
-	U = produtoVetorial(N, V);
+	V = normalize(V);
+	U = vectorProduct(N, V);
 }
 
-Point convertToVista(Point P_mundo) {
-	P_mundo.x -= C.x;
-	P_mundo.y -= C.y;
-	P_mundo.z -= C.z;
+Point convertToView(Point P_world) {
+	P_world.x -= C.x;
+	P_world.y -= C.y;
+	P_world.z -= C.z;
 
-	Point p_vista;
-	p_vista.x = P_mundo.x *U.x + P_mundo.y*U.y + P_mundo.z*U.z;
-	p_vista.y = P_mundo.x *V.x + P_mundo.y*V.y + P_mundo.z*V.z;
-	p_vista.z = P_mundo.x *N.x + P_mundo.y*N.y + P_mundo.z*N.z;
+	Point p_view;
+	p_view.x = P_world.x *U.x + P_world.y*U.y + P_world.z*U.z;
+	p_view.y = P_world.x *V.x + P_world.y*V.y + P_world.z*V.z;
+	p_view.z = P_world.x *N.x + P_world.y*N.y + P_world.z*N.z;
 
-	return p_vista;
+	return p_view;
 }
 
-Point_2D calcular_ponto_tela(Point P_vista) {
-	Point_2D p_tela;
+Point_2D calculateScreenPoint(Point P_view) {
+	Point_2D p_screen;
 
-	float x = (d / hx)*(P_vista.x / P_vista.z);
-	float y = (d / hy)*(P_vista.y / P_vista.z);
+	float x = (d / hx)*(P_view.x / P_view.z);
+	float y = (d / hy)*(P_view.y / P_view.z);
 
-	p_tela.x = static_cast<int>(((x + 1) * (SCREEN_WIDTH / 2)));
+	p_screen.x = static_cast<int>(((x + 1) * (SCREEN_WIDTH / 2)));
 
-	p_tela.y = static_cast<int>(((1 - y) * (SCREEN_HEIGHT / 2)));
+	p_screen.y = static_cast<int>(((1 - y) * (SCREEN_HEIGHT / 2)));
 
-	return p_tela;
+	return p_screen;
 }
 
-void coordenadasToVista() { //calcula as coordenadas de vista e de tela de uma vez
+void calculateScreenAndViewCoordinates() { // calculate screen and view coordinates in one shot
 	Point_2D p;
-	points_tela.push_back(p);
+	screenPoints.push_back(p);
 	for (int i = 1; i < points.size(); i++) {
-		points[i] = convertToVista(points[i]);
-		points_tela.push_back(calcular_ponto_tela(points[i]));
+		points[i] = convertToView(points[i]);
+		screenPoints.push_back(calculateScreenPoint(points[i]));
 	}
 
-	Pl = convertToVista(Pl);
+	Pl = convertToView(Pl);
 }
 
-Point normal_triangulo(Point p1, Point p2, Point p3) { //calcula a normal do triangulo
+Point triangleNormal(Point p1, Point p2, Point p3) { // triangle normal calculation
 	Point v1; v1.setxyz(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
 	Point v2; v2.setxyz(p3.x - p1.x, p3.y - p1.y, p3.z - p1.z);
-	Point retorna = produtoVetorial(v1, v2);
+	Point product = vectorProduct(v1, v2);
 
-	return retorna;
+	return product;
 }
 
-void inicializaNormaisPoints() { //inicializa as normais dos pontos com (0,0,0)
+void initializeNormalPoints() { // normal point initialization in (0,0,0)
 	Point p;
 	p.setxyz(0, 0, 0);
-	normaisPoints.push_back(p);
+	normalPoints.push_back(p);
 	for (int i = 1; i <= points.size(); i++) {
-		normaisPoints.push_back(p);
+		normalPoints.push_back(p);
 	}
 }
 
-void normalizaNormaisPoints() {
-	for (int i = 1; i < normaisPoints.size(); i++) {
-		normaisPoints[i] = normaliza(normaisPoints[i]);
+void normalizeNormalPoints() {
+	for (int i = 1; i < normalPoints.size(); i++) {
+		normalPoints[i] = normalize(normalPoints[i]);
 	}
 }
 
-void calcular_normal_triangulos() { //calcular normais dos triangulos e pontos
-	inicializaNormaisPoints(); //inicializa normais dos pontos)
+void calculateTriangleNormalVector() { // points and triangles normal calculation
+	initializeNormalPoints(); // normal points initialization
 	Point p;
-	normaisTriangulos.push_back(p);
-	for (int i = 1; i < triangulos.size(); i++) {
-		Triangulo t = triangulos[i];//calcula normal dos triangulos
-		Point x = normal_triangulo(points[t.v1], points[t.v2], points[t.v3]);
+	normalTriangles.push_back(p);
+	for (int i = 1; i < triangles.size(); i++) {
+		Triangle t = triangles[i];// normal triangles calculation
+		Point x = triangleNormal(points[t.v1], points[t.v2], points[t.v3]);
 
-		normaisTriangulos.push_back(x);
-		normaisTriangulos[i] = normaliza(normaisTriangulos[i]);
+		normalTriangles.push_back(x);
+		normalTriangles[i] = normalize(normalTriangles[i]);
 
-		//soma a normal do triangulo à cada normal dos seus vertices
+		// sum triangle normal and each one of its vertex
 		//v1
-		normaisPoints[t.v1].x += normaisTriangulos[i].x;
-		normaisPoints[t.v1].y += normaisTriangulos[i].y;
-		normaisPoints[t.v1].z += normaisTriangulos[i].z;
+		normalPoints[t.v1].x += normalTriangles[i].x;
+		normalPoints[t.v1].y += normalTriangles[i].y;
+		normalPoints[t.v1].z += normalTriangles[i].z;
 
 		//v2
-		normaisPoints[t.v2].x += normaisTriangulos[i].x;
-		normaisPoints[t.v2].y += normaisTriangulos[i].y;
-		normaisPoints[t.v2].z += normaisTriangulos[i].z;
+		normalPoints[t.v2].x += normalTriangles[i].x;
+		normalPoints[t.v2].y += normalTriangles[i].y;
+		normalPoints[t.v2].z += normalTriangles[i].z;
 
 		//v3
-		normaisPoints[t.v3].x += normaisTriangulos[i].x;
-		normaisPoints[t.v3].y += normaisTriangulos[i].y;
-		normaisPoints[t.v3].z += normaisTriangulos[i].z;
+		normalPoints[t.v3].x += normalTriangles[i].x;
+		normalPoints[t.v3].y += normalTriangles[i].y;
+		normalPoints[t.v3].z += normalTriangles[i].z;
 	}
 
-	normalizaNormaisPoints();
+	normalizeNormalPoints();
 }
 
-void inicializa_z_buffer() { //inicializa x_buffer com +infinito
+void initializeZBuffer() { // +infinity x_buffer initialization
 	for (int i = 0; i < SCREEN_WIDTH + 1; i++) {
 		for (int j = 0; j < SCREEN_HEIGHT + 1; j++) {
 			z_buffer[i][j] = 99999999;
@@ -396,49 +396,50 @@ void inicializa_z_buffer() { //inicializa x_buffer com +infinito
 	}
 }
 
-//Ponto 2d + os 3 vertices do triangulo em 2D
-Point calcula_alfa_beta_gama(Point p, Point_2D v1, Point_2D v2, Point_2D v3) {
-	float alfa, beta, gama;
+// 2D Point and all 3 triangle vertex in 2D
+Point calculateAlphaBetaGamma(Point p, Point_2D v1, Point_2D v2, Point_2D v3) {
+	float alpha, beta, gamma;
 
-	Linha l1 = Linha(v1.x, v2.x, v3.x, p.x);
-	Linha l2 = Linha(v1.y, v2.y, v3.y, p.y);
-	Linha l3 = Linha(1, 1, 1, 1);
-	Linha esc = Escalona(l1, l2, l3).esc();
-	alfa = esc.a;
+	Line l1 = Line(v1.x, v2.x, v3.x, p.x);
+	Line l2 = Line(v1.y, v2.y, v3.y, p.y);
+	Line l3 = Line(1, 1, 1, 1);
+	Line esc = RowReduction(l1, l2, l3).reduction();
+	alpha = esc.a;
 	beta = esc.b;
-	gama = esc.c;
+	gamma = esc.c;
 
-	Point retorno; retorno.setxyz(alfa, beta, gama);
+	Point returnPoint;
+	returnPoint.setxyz(alpha, beta, gamma);
 
 	return retorno;
 }
 
-Point calcula_alfa_beta(Point p, Point_2D v1, Point_2D v2) {
-	Point retorno;
+Point calculateAlphaBeta(Point p, Point_2D v1, Point_2D v2) {
+	Point returnPoint;
 
 	if (eq(abs(v2.x - v1.x), 0)) {
-		retorno.setxyz(1, 0, 0);
-		return retorno;
+		returnPoint.setxyz(1, 0, 0);
+		return returnPoint;
 	}
 
 	float beta = (p.x - v1.x) / (v2.x - v1.x);
-	float alfa = 1 - beta;
-	retorno.setxyz(alfa, beta, 0);
+	float alpha = 1 - beta;
+	returnPoint.setxyz(alpha, beta, 0);
 
-	return retorno;
+	return returnPoint;
 }
 
-Point vetor_cor(Point p, Point cor) {
-	Point retorno;
+Point colorVector(Point p, Point color) {
+	Point returnPoint;
 
-	retorno.x = p.x *cor.x;
-	retorno.y = p.y *cor.y;
-	retorno.z = p.z *cor.z;
+	returnPoint.x = p.x *color.x;
+	returnPoint.y = p.y *color.y;
+	returnPoint.z = p.z *color.z;
 
-	return retorno;
+	return returnPoint;
 }
 
-Point vetor_escalar(float k, Point v) {
+Point escalarVector(float k, Point v) {
 	v.x *= k;
 	v.y *= k;
 	v.z *= k;
@@ -446,7 +447,7 @@ Point vetor_escalar(float k, Point v) {
 	return  v;
 }
 
-Point somaVetor(Point p1, Point p2) {
+Point sumVector(Point p1, Point p2) {
 	p1.setxyz(p1.x + p2.x, p1.y + p2.y, p1.z + p2.z);
 	return p1;
 }
@@ -454,116 +455,116 @@ Point somaVetor(Point p1, Point p2) {
 Point phong(Point L, Point V, Point R, Point normal, float kdAUx, float ksAux) {
 	Point  ia, Ib, Ic;
 
-	ia = vetor_escalar(ka, Ia);
+	ia = escalarVector(ka, Ia);
 
-	float kdNL = kdAUx*produtoInterno(normal, L);
-	Point vetor = vetor_cor(Od, Il);
-	Ib = vetor_escalar(kdNL, vetor);
+	float kdNL = kdAUx*innerProduct(normal, L);
+	Point myVector = colorVector(Od, Il);
+	Ib = escalarVector(kdNL, myVector);
 
-	float ksRV = ksAux*pow(produtoInterno(R, V), n);
-	Ic = vetor_escalar(ksRV, Il);
+	float ksRV = ksAux*pow(innerProduct(R, V), n);
+	Ic = escalarVector(ksRV, Il);
 
-	Point sum = somaVetor(Ib, ia);
-	sum = somaVetor(sum, Ic);
+	Point sum = sumVector(Ib, ia);
+	sum = sumVector(sum, Ic);
 
 	return sum;
 }
 
-void drawLine(Triangulo t, Point_2D p1, Point_2D p2, Point_2D p3) {
+void drawLine(Triangle t, Point_2D p1, Point_2D p2, Point_2D p3) {
 	int a = t.v1, b = t.v2, c = t.v3;
-	/*ordenar os pontos internamente em relacao ao valor de X*/
-	if (points_tela[a].x > points_tela[b].x)
+	/*order the points internally in relation to the value of X*/
+	if (screenPoints[a].x > screenPoints[b].x)
 		swap(a, b);
-	if (points_tela[a].x > points_tela[c].x)
+	if (screenPoints[a].x > screenPoints[c].x)
 		swap(a, c);
-	if (points_tela[b].x > points_tela[c].x)
+	if (screenPoints[b].x > screenPoints[c].x)
 		swap(b, c);
 
-	Triangulo t1;
+	Triangle t1;
 	t1.setvs(a, b, c);
 
-	int x1 = points_tela[a].x;
-	int sline = points_tela[a].y;
+	int x1 = screenPoints[a].x;
+	int sline = screenPoints[a].y;
 
-	int x2 = points_tela[b].x;
+	int x2 = screenPoints[b].x;
 
 	while (x1 <= x2) {
-		calculoGeral(x1, sline, t1, true);
+		ordinaryCalculation(x1, sline, t1, true);
 		x1++;
 	}
 }
 
-void calculoGeral(int xscan, int scanlineY, Triangulo t, bool line) {
+void ordinaryCalculation(int xscan, int scanlineY, Triangle t, bool line) {
 	Point aux, pixel, p_3D, normal, v, l, r;
-	float alfa, beta, gama;
+	float alpha, beta, gamma;
 
 	pixel.setxyz(xscan, scanlineY, 0);
 
 	if (line == false) {
-		aux = calcula_alfa_beta_gama(pixel, points_tela[t.v1], points_tela[t.v2], points_tela[t.v3]);
-		alfa = aux.x;   beta = aux.y;   gama = aux.z;
+		aux = calculateAlphaBetaGamma(pixel, screenPoints[t.v1], screenPoints[t.v2], screenPoints[t.v3]);
+		alpha = aux.x;   beta = aux.y;   gamma = aux.z;
 		
 		
-		/*aproximacao do ponto 3D*/
-		p_3D.setxyz(alfa * points[t.v1].x + beta * points[t.v2].x + gama * points[t.v3].x,
-			alfa * points[t.v1].y + beta * points[t.v2].y + gama * points[t.v3].y,
-			alfa * points[t.v1].z + beta * points[t.v2].z + gama * points[t.v3].z);
+		/*3D point approximation*/
+		p_3D.setxyz(alpha * points[t.v1].x + beta * points[t.v2].x + gamma * points[t.v3].x,
+			alpha * points[t.v1].y + beta * points[t.v2].y + gamma * points[t.v3].y,
+			alpha * points[t.v1].z + beta * points[t.v2].z + gamma * points[t.v3].z);
 	}
 	else {
-		aux = calcula_alfa_beta(pixel, points_tela[t.v1], points_tela[t.v3]);
+		aux = calculateAlphaBeta(pixel, screenPoints[t.v1], screenPoints[t.v3]);
 
-		alfa = aux.x;
+		alpha = aux.x;
 		beta = aux.y;
-		/*aproximacao do ponto 3D*/
-		p_3D.setxyz(alfa * points[t.v1].x + beta  * points[t.v3].x,
-			alfa * points[t.v1].y + beta  * points[t.v3].y,
-			alfa * points[t.v1].z + beta  * points[t.v3].z);
+		/*3D point approximation*/
+		p_3D.setxyz(alpha * points[t.v1].x + beta  * points[t.v3].x,
+			alpha * points[t.v1].y + beta  * points[t.v3].y,
+			alpha * points[t.v1].z + beta  * points[t.v3].z);
 	}
 
 	int x = static_cast<int>(pixel.x + 0.5);
 	int y = static_cast<int>(pixel.y + 0.5);
 	float z = p_3D.z;
 
-	/*consulta ao z-buffer*/
+	/*check z-buffer*/
 	if ((z < z_buffer[x][y]) && (x < (SCREEN_WIDTH + 1)) && y < (SCREEN_HEIGHT + 1)) {
 		z_buffer[x][y] = z;
 		if (line == false) {
-			normal.setxyz(alfa * normaisPoints[t.v1].x + beta * normaisPoints[t.v2].x + gama * normaisPoints[t.v3].x,
-				alfa * normaisPoints[t.v1].y + beta * normaisPoints[t.v2].y + gama * normaisPoints[t.v3].y,
-				alfa * normaisPoints[t.v1].z + beta * normaisPoints[t.v2].z + gama * normaisPoints[t.v3].z);
+			normal.setxyz(alpha * normalPoints[t.v1].x + beta * normalPoints[t.v2].x + gamma * normalPoints[t.v3].x,
+				alpha * normalPoints[t.v1].y + beta * normalPoints[t.v2].y + gamma * normalPoints[t.v3].y,
+				alpha * normalPoints[t.v1].z + beta * normalPoints[t.v2].z + gamma * normalPoints[t.v3].z);
 		}
 		else {
-			normal.setxyz(alfa * normaisPoints[t.v1].x + beta  * normaisPoints[t.v3].x,
-				alfa * normaisPoints[t.v1].y + beta  * normaisPoints[t.v3].y,
-				alfa * normaisPoints[t.v1].z + beta  * normaisPoints[t.v3].z);
+			normal.setxyz(alpha * normalPoints[t.v1].x + beta  * normalPoints[t.v3].x,
+				alpha * normalPoints[t.v1].y + beta  * normalPoints[t.v3].y,
+				alpha * normalPoints[t.v1].z + beta  * normalPoints[t.v3].z);
 		}
 
 		v.setxyz(0 - p_3D.x, 0 - p_3D.y, 0 - p_3D.z);
 		l.setxyz(Pl.x - p_3D.x, Pl.y - p_3D.y, Pl.z - p_3D.z);
 
-		normal = normaliza(normal);
-		v = normaliza(v);
-		l = normaliza(l);
+		normal = normalize(normal);
+		v = normalize(v);
+		l = normalize(l);
 
 		float kdAux = kd, ksAux = ks;
-		if (produtoInterno(v, normal) < 0) normal.setxyz(0 - normal.x, 0 - normal.y, 0 - normal.z);
+		if (innerProduct(v, normal) < 0) normal.setxyz(0 - normal.x, 0 - normal.y, 0 - normal.z);
 
-		if (produtoInterno(normal, l) < 0) {
+		if (innerProduct(normal, l) < 0) {
 			kdAux = 0;
 			ksAux = 0;
 		}
 
-		/*Calcular o vetor R = (2(N . L)N) - L. E normalizar R.*/
-		float a = produtoInterno(normal, l);
-		Point b = produtoVetorEscalar(2.0, normal);
-		b = produtoVetorEscalar(a, b);
-		r = subtracaoVetor(b, l);
-		r = normaliza(r);
+		/*Calculate the vector R = (2(N . L)N) - L. And normalize R.*/
+		float a = innerProduct(normal, l);
+		Point b = escalarVectorProduct(2.0, normal);
+		b = escalarVectorProduct(a, b);
+		r = subtractVectors(b, l);
+		r = normalize(r);
 
-		if ((alfa < 0.1) || (beta < 0.1) || (gama < 0.1)) {
+		if ((alpha < 0.1) || (beta < 0.1) || (gamma < 0.1)) {
 			Od.setxyz(0.9, 0.1, 0.1);
 		}
-		else if (((alfa < 0.2) && (alfa > 0.1)) || ((beta < 0.2) && (beta > 0.1)) || ((gama < 0.2) && (gama > 0.1))) {
+		else if (((alpha < 0.2) && (alpha > 0.1)) || ((beta < 0.2) && (beta > 0.1)) || ((gamma < 0.2) && (gamma > 0.1))) {
 			Od.setxyz(0.1, 0.9, 0.1);
 		}
 		else {
@@ -571,10 +572,10 @@ void calculoGeral(int xscan, int scanlineY, Triangulo t, bool line) {
 		}
 
 
-		if (produtoInterno(r, v) < 0) ksAux = 0;
-		Point cor = phong(l, v, r, normal, kdAux, ksAux);
+		if (innerProduct(r, v) < 0) ksAux = 0;
+		Point color = phong(l, v, r, normal, kdAux, ksAux);
 
-		float red = cor.x, green = cor.y, blue = cor.z;
+		float red = color.x, green = color.y, blue = color.z;
 
 		if (red > 255) red = 255.0;
 		if (green > 255) green = 255.0;
@@ -587,77 +588,77 @@ void calculoGeral(int xscan, int scanlineY, Triangulo t, bool line) {
 	}
 }
 
-Point calculoGeral2(int xscan, int scanlineY, Triangulo t, bool line) {
+Point ordinaryCalculation2(int xscan, int scanlineY, Triangle t, bool line) {
 	Point aux, pixel, p_3D, normal, v, l, r;
-	float alfa, beta, gama;
+	float alpha, beta, gamma;
 
 	pixel.setxyz(xscan, scanlineY, 0);
 
 	if (line == false) {
-		aux = calcula_alfa_beta_gama(pixel, points_tela[t.v1], points_tela[t.v2], points_tela[t.v3]);
-		alfa = aux.x;   beta = aux.y;   gama = aux.z;
+		aux = calculateAlphaBetaGamma(pixel, screenPoints[t.v1], screenPoints[t.v2], screenPoints[t.v3]);
+		alpha = aux.x;   beta = aux.y;   gamma = aux.z;
 
 
-		/*aproximacao do ponto 3D*/
-		p_3D.setxyz(alfa * points[t.v1].x + beta * points[t.v2].x + gama * points[t.v3].x,
-			alfa * points[t.v1].y + beta * points[t.v2].y + gama * points[t.v3].y,
-			alfa * points[t.v1].z + beta * points[t.v2].z + gama * points[t.v3].z);
+		/*3D point approximation*/
+		p_3D.setxyz(alpha * points[t.v1].x + beta * points[t.v2].x + gamma * points[t.v3].x,
+			alpha * points[t.v1].y + beta * points[t.v2].y + gamma * points[t.v3].y,
+			alpha * points[t.v1].z + beta * points[t.v2].z + gamma * points[t.v3].z);
 	}
 	else {
-		aux = calcula_alfa_beta(pixel, points_tela[t.v1], points_tela[t.v3]);
+		aux = calculateAlphaBeta(pixel, screenPoints[t.v1], screenPoints[t.v3]);
 
-		alfa = aux.x;
+		alpha = aux.x;
 		beta = aux.y;
 
-		p_3D.setxyz(alfa * points[t.v1].x + beta  * points[t.v3].x,
-			alfa * points[t.v1].y + beta  * points[t.v3].y,
-			alfa * points[t.v1].z + beta  * points[t.v3].z);
+		p_3D.setxyz(alpha * points[t.v1].x + beta  * points[t.v3].x,
+			alpha * points[t.v1].y + beta  * points[t.v3].y,
+			alpha * points[t.v1].z + beta  * points[t.v3].z);
 	}
 
 	int x = static_cast<int>(pixel.x + 0.5);
 	int y = static_cast<int>(pixel.y + 0.5);
 	float z = p_3D.z;
-	Point cor;
+	Point color;
 
 	if ((x < (SCREEN_WIDTH + 1)) && y < (SCREEN_HEIGHT + 1)) {
 		if (line == false) {
-			normal.setxyz(alfa * normaisPoints[t.v1].x + beta * normaisPoints[t.v2].x + gama * normaisPoints[t.v3].x,
-				alfa * normaisPoints[t.v1].y + beta * normaisPoints[t.v2].y + gama * normaisPoints[t.v3].y,
-				alfa * normaisPoints[t.v1].z + beta * normaisPoints[t.v2].z + gama * normaisPoints[t.v3].z);
+			normal.setxyz(alpha * normalPoints[t.v1].x + beta * normalPoints[t.v2].x + gamma * normalPoints[t.v3].x,
+				alpha * normalPoints[t.v1].y + beta * normalPoints[t.v2].y + gamma * normalPoints[t.v3].y,
+				alpha * normalPoints[t.v1].z + beta * normalPoints[t.v2].z + gamma * normalPoints[t.v3].z);
 		}
 		else {
-			normal.setxyz(alfa * normaisPoints[t.v1].x + beta  * normaisPoints[t.v3].x,
-				alfa * normaisPoints[t.v1].y + beta  * normaisPoints[t.v3].y,
-				alfa * normaisPoints[t.v1].z + beta  * normaisPoints[t.v3].z);
+			normal.setxyz(alpha * normalPoints[t.v1].x + beta  * normalPoints[t.v3].x,
+				alpha * normalPoints[t.v1].y + beta  * normalPoints[t.v3].y,
+				alpha * normalPoints[t.v1].z + beta  * normalPoints[t.v3].z);
 		}
 
 		v.setxyz(0 - p_3D.x, 0 - p_3D.y, 0 - p_3D.z);
 		l.setxyz(Pl.x - p_3D.x, Pl.y - p_3D.y, Pl.z - p_3D.z);
 
-		normal = normaliza(normal);
-		v = normaliza(v);
-		l = normaliza(l);
+		normal = normalize(normal);
+		v = normalize(v);
+		l = normalize(l);
 
 		float kdAux = kd, ksAux = ks;
-		if (produtoInterno(v, normal) < 0) normal.setxyz(0 - normal.x, 0 - normal.y, 0 - normal.z);
+		if (innerProduct(v, normal) < 0) normal.setxyz(0 - normal.x, 0 - normal.y, 0 - normal.z);
 
-		if (produtoInterno(normal, l) < 0) {
+		if (innerProduct(normal, l) < 0) {
 			kdAux = 0;
 			ksAux = 0;
 		}
 
-		/*Calcular o vetor R = (2(N . L)N) - L. E normalizar R.*/
-		float a = produtoInterno(normal, l);
-		Point b = produtoVetorEscalar(2.0, normal);
-		b = produtoVetorEscalar(a, b);
-		r = subtracaoVetor(b, l);
-		r = normaliza(r);
+		/*Calculate the vector R = (2(N . L)N) - L. And normalize R.*/
+		float a = innerProduct(normal, l);
+		Point b = escalarVectorProduct(2.0, normal);
+		b = escalarVectorProduct(a, b);
+		r = subtractVectors(b, l);
+		r = normalize(r);
 
-		if (produtoInterno(r, v) < 0) ksAux = 0;
+		if (innerProduct(r, v) < 0) ksAux = 0;
 
-		cor = phong(l, v, r, normal, kdAux, ksAux);
+		color = phong(l, v, r, normal, kdAux, ksAux);
 
-		float red = cor.x, green = cor.y, blue = cor.z;
+		float red = color.x, green = color.y, blue = color.z;
 
 		if (red > 255) red = 255.0;
 		if (green > 255) green = 255.0;
@@ -665,14 +666,14 @@ Point calculoGeral2(int xscan, int scanlineY, Triangulo t, bool line) {
 
 		red /= 255.0; green /= 255.0;  blue /= 255.0;
 
-		cor.setxyz(red, green, blue);
-		return cor;
+		color.setxyz(red, green, blue);
+		return color;
 	}
-	cor.setxyz(0, 0, 0);
-	return cor;
+	color.setxyz(0, 0, 0);
+	return color;
 }
 
-void fillBottomFlatTriangle(Triangulo t, Point_2D v1, Point_2D v2, Point_2D v3)
+void fillBottomFlatTriangle(Triangle t, Point_2D v1, Point_2D v2, Point_2D v3)
 {
 	float invslope1 = (v2.x - v1.x) / (v2.y - v1.y);
 	float invslope2 = (v3.x - v1.x) / (v3.y - v1.y);
@@ -681,20 +682,20 @@ void fillBottomFlatTriangle(Triangulo t, Point_2D v1, Point_2D v2, Point_2D v3)
 	float curx1 = v1.x;
 	float curx2 = v1.x;
 
-	Point cor_v1, cor_v2, cor_v3, bar, ponto, cor_ponto;
-	//cores dos vertices para gouraud
+	Point color_v1, color_v2, color_v3, bar, point, color_point;
+	// vertex colors in gouraud
 	if (gr) {
-		cor_v1 = calculoGeral2(v1.x, v1.y, t, false);
-		cor_v2 = calculoGeral2(v2.x, v2.y, t, false);
-		cor_v3 = calculoGeral2(v3.x, v3.y, t, false);
+		color_v1 = ordinaryCalculation2(v1.x, v1.y, t, false);
+		color_v2 = ordinaryCalculation2(v2.x, v2.y, t, false);
+		color_v3 = ordinaryCalculation2(v3.x, v3.y, t, false);
 	}
 	Point p_3D;
 	for (int scanlineY = v1.y; scanlineY <= v2.y; scanlineY++)
 	{
 		for (int xscan = curx1; xscan <= curx2; xscan++) {
 			if (gr) {
-				ponto.setxyz(xscan, scanlineY, 1);
-				bar = calcula_alfa_beta_gama(ponto, v1, v2, v3);
+				point.setxyz(xscan, scanlineY, 1);
+				bar = calculateAlphaBetaGamma(point, v1, v2, v3);
 
 				p_3D.setxyz(bar.x * points[t.v1].x + bar.y * points[t.v2].x + bar.z * points[t.v3].x,
 					bar.x * points[t.v1].y + bar.y * points[t.v2].y + bar.z * points[t.v3].y,
@@ -705,20 +706,20 @@ void fillBottomFlatTriangle(Triangulo t, Point_2D v1, Point_2D v2, Point_2D v3)
 				if ((z < z_buffer[xscan][scanlineY]) && (xscan < (SCREEN_WIDTH + 1)) && scanlineY < (SCREEN_HEIGHT + 1)) {
 					z_buffer[xscan][scanlineY] = z;
 
-					//cor do pixel por combinacao baricentrica das cores dos vertices do triangulo
-					cor_ponto.setxyz(bar.x * cor_v1.x + bar.y * cor_v2.x + bar.z * cor_v3.x,
-						bar.x * cor_v1.y + bar.y * cor_v2.y + bar.z * cor_v3.y,
-						bar.x * cor_v1.z + bar.y * cor_v2.z + bar.z * cor_v3.z);
+					// pixel's color by baricentric combination of triangle vertex colors
+					color_point.setxyz(bar.x * color_v1.x + bar.y * color_v2.x + bar.z * color_v3.x,
+						bar.x * color_v1.y + bar.y * color_v2.y + bar.z * color_v3.y,
+						bar.x * color_v1.z + bar.y * color_v2.z + bar.z * color_v3.z);
 
-					//pintar o pixel
-					float red = cor_ponto.x, green = cor_ponto.y, blue = cor_ponto.z;
+					// coloring the pixel
+					float red = color_point.x, green = color_point.y, blue = color_point.z;
 
 					glColor3f(red, green, blue);
 					drawDot(xscan, scanlineY);
 				}
 			}
 			else {
-				calculoGeral(xscan, scanlineY, t, false);
+				ordinaryCalculation(xscan, scanlineY, t, false);
 			}
 		}
 		curx1 += invslope1;
@@ -726,29 +727,29 @@ void fillBottomFlatTriangle(Triangulo t, Point_2D v1, Point_2D v2, Point_2D v3)
 	}
 }
 
-void fillTopFlatTriangle(Triangulo t, Point_2D v1, Point_2D v2, Point_2D v3)
+void fillTopFlatTriangle(Triangle t, Point_2D v1, Point_2D v2, Point_2D v3)
 {
 	float invslope1 = (v3.x - v1.x) / (v3.y - v1.y);
 	float invslope2 = (v3.x - v2.x) / (v3.y - v2.y);
 
-	if (invslope2 > invslope1)   swap(invslope1, invslope2);
+	if (invslope2 > invslope1) swap(invslope1, invslope2);
 	float curx1 = v3.x;
 	float curx2 = v3.x;
 
-	Point cor_v1, cor_v2, cor_v3, bar, ponto, cor_ponto, Ia, Ib, Ip;
-	//cores dos vertices para gouraud
+	Point color_v1, color_v2, color_v3, bar, point, color_point, Ia, Ib, Ip;
+	// vertex color in gouraud
 	if (gr) {
-		cor_v1 = calculoGeral2(v1.x, v1.y, t, false);
-		cor_v2 = calculoGeral2(v2.x, v2.y, t, false);
-		cor_v3 = calculoGeral2(v3.x, v3.y, t, false);
+		color_v1 = ordinaryCalculation2(v1.x, v1.y, t, false);
+		color_v2 = ordinaryCalculation2(v2.x, v2.y, t, false);
+		color_v3 = ordinaryCalculation2(v3.x, v3.y, t, false);
 	}
 	Point p_3D;
 	for (int scanlineY = v3.y; scanlineY >= v1.y; scanlineY--)
 	{
 		for (int xscan = curx1; xscan <= curx2; xscan++) {
 			if (gr) {
-				ponto.setxyz(xscan, scanlineY, 1);
-				bar = calcula_alfa_beta_gama(ponto, v1, v2, v3);
+				point.setxyz(xscan, scanlineY, 1);
+				bar = calculateAlphaBetaGamma(point, v1, v2, v3);
 
 				p_3D.setxyz(bar.x * points[t.v1].x + bar.y * points[t.v2].x + bar.z * points[t.v3].x,
 					bar.x * points[t.v1].y + bar.y * points[t.v2].y + bar.z * points[t.v3].y,
@@ -759,20 +760,20 @@ void fillTopFlatTriangle(Triangulo t, Point_2D v1, Point_2D v2, Point_2D v3)
 				if ((z < z_buffer[xscan][scanlineY]) && (xscan < (SCREEN_WIDTH + 1)) && scanlineY < (SCREEN_HEIGHT + 1)) {
 					z_buffer[xscan][scanlineY] = z;
 
-					//cor do pixel por combinacao baricentrica das cores dos vertices do triangulo
-					cor_ponto.setxyz(bar.x * cor_v1.x + bar.y * cor_v2.x + bar.z * cor_v3.x,
-						bar.x * cor_v1.y + bar.y * cor_v2.y + bar.z * cor_v3.y,
-						bar.x * cor_v1.z + bar.y * cor_v2.z + bar.z * cor_v3.z);
+					// pixel's color by baricentric combination of triangle vertex colors
+					color_point.setxyz(bar.x * color_v1.x + bar.y * color_v2.x + bar.z * color_v3.x,
+						bar.x * color_v1.y + bar.y * color_v2.y + bar.z * color_v3.y,
+						bar.x * color_v1.z + bar.y * color_v2.z + bar.z * color_v3.z);
 
-					//pintar o pixel
-					float red = cor_ponto.x, green = cor_ponto.y, blue = cor_ponto.z;
+					//coloring the pixel
+					float red = color_point.x, green = color_point.y, blue = color_point.z;
 
 					glColor3f(red, green, blue);
 					drawDot(xscan, scanlineY);
 				}
 			}
 			else {
-				calculoGeral(xscan, scanlineY, t, false);
+				ordinaryCalculation(xscan, scanlineY, t, false);
 			}
 		}
 		curx1 -= invslope1;
@@ -781,38 +782,38 @@ void fillTopFlatTriangle(Triangulo t, Point_2D v1, Point_2D v2, Point_2D v3)
 }
 
 
-void drawTriangle(Triangulo t, Point_2D v1, Point_2D v2, Point_2D v3) {
+void drawTriangle(Triangle t, Point_2D v1, Point_2D v2, Point_2D v3) {
 	Point_2D a, b, c;
 
 	int va = t.v1, vb = t.v2, vc = t.v3;
-	/*ordenar os pontos internamente em relacao ao valor de X*/
-	if (points_tela[va].y > points_tela[vb].y)
+	/*order the points internally in relation to the value of X*/
+	if (screenPoints[va].y > screenPoints[vb].y)
 		swap(va, vb);
-	if (points_tela[va].y > points_tela[vc].y)
+	if (screenPoints[va].y > screenPoints[vc].y)
 		swap(va, vc);
-	if (points_tela[vb].y > points_tela[vc].y)
+	if (screenPoints[vb].y > screenPoints[vc].y)
 		swap(vb, vc);
 
-	Triangulo t1;
+	Triangle t1;
 	t1.setvs(va, vb, vc);
 
-	a = points_tela[va];
-	b = points_tela[vb];
-	c = points_tela[vc];
+	a = screenPoints[va];
+	b = screenPoints[vb];
+	c = screenPoints[vc];
 
 	t = t1;
 
-	/* verifica o caso base para bottomTriangle */
+	/* checks the base case for bottomTriangle */
 	if (b.y == c.y) fillBottomFlatTriangle(t, a, b, c);
 
-	/* verifica o caso base para topTriangle */
+	/* checks the base case for topTriangle */
 	else if (a.y == b.y) fillTopFlatTriangle(t, a, b, c);
 
 	else {
-		/*caso geral - dividir o triangulo em dois e aplicar ao bottom e top triangle*/
+		/*general case - divide the triangle in two and apply to the bottom and top triangle*/
 		Point_2D d;
 		//printf("fillTopFlatTriangle && fillBottomFlatTriangle\n");
-		d.setxyz((a.x + ((float)(b.y - a.y) / (float)(c.y - a.y)) * (c.x - a.x)), b.y);/*ponto de intermedio para divisao em dois triangulos*/
+		d.setxyz((a.x + ((float)(b.y - a.y) / (float)(c.y - a.y)) * (c.x - a.x)), b.y);/*intermediate point for dividing into two triangles*/
 		fillBottomFlatTriangle(t, a, b, d);
 		fillTopFlatTriangle(t, b, d, c);
 	}
